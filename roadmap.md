@@ -3,12 +3,12 @@
 Review after every slice, then continue to the next.
 
 ## Phase 1 — Foundations
-- [ ] 1.1 Tenant awareness: X-Tenant-Slug on every request from a global context
-- [ ] 1.2 7 roles + page permission guards
-- [ ] 1.3 Unified status vocabulary (kitchen/packed/onway replaces cooking/picking)
-- [ ] 1.4 Single price parser + forced password-change screen
-- [ ] 1.5 useLiveResource(key, fetcher, interval) hook replacing scattered intervals
-- [ ] 1.6 Fix ConnectionBanner double /api/api/menu/ bug; admin.riders.tsx hardcoded paths -> endpoints.ts
+- [x] 1.1 Tenant awareness: X-Tenant-Slug on every request from a global context
+- [x] 1.2 7 roles + page permission guards
+- [x] 1.3 Unified status vocabulary (kitchen/packed/onway replaces cooking/picking)
+- [x] 1.4 Single price parser + forced password-change screen
+- [x] 1.5 useLiveResource(key, fetcher, interval) hook replacing scattered intervals
+- [x] 1.6 Fix ConnectionBanner double /api/api/menu/ bug; admin.riders.tsx hardcoded paths -> endpoints.ts
 
 ## Phase 2 — Customer Flow Upgrade
 BLOCKER: confirm backend accepts multi-item `items: []` before starting (test order).
