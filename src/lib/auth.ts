@@ -281,6 +281,9 @@ export async function verifyRole(opts: { force?: boolean } = {}): Promise<Accoun
     try {
       const me = await api.get<MeResponse>(AUTH.me);
       if (typeof me.is_email_verified === "boolean") _emailVerified = me.is_email_verified;
+      const flag = me.must_change_password ?? me.user?.must_change_password;
+      if (typeof flag === "boolean") _mustChangePassword = flag;
+      if (me.tenant ?? me.user?.tenant) rememberTenant(me.tenant ?? me.user?.tenant);
       const role = (me.role ||
         me.user?.role ||
         (me.is_superuser ? "admin" : me.is_staff ? "staff" : undefined)) as AccountRole | undefined;
