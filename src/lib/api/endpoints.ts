@@ -30,6 +30,11 @@ export const AUTH = {
    * A phone we've never seen becomes a customer account silently (no password).
    */
   phoneVerify: "/auth/phone-verify/",
+  /**
+   * The v2.4 system guide names this one instead. Path spelling is UNCONFIRMED,
+   * so `verifyPhoneCode()` tries `phoneVerify` first and falls back to this.
+   */
+  phoneVerifyAlt: "/auth/verify-otp/",
 } as const;
 
 
