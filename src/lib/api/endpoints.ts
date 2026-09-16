@@ -30,6 +30,11 @@ export const AUTH = {
    * A phone we've never seen becomes a customer account silently (no password).
    */
   phoneVerify: "/auth/phone-verify/",
+  /**
+   * The v2.4 system guide names this one instead. Path spelling is UNCONFIRMED,
+   * so `verifyPhoneCode()` tries `phoneVerify` first and falls back to this.
+   */
+  phoneVerifyAlt: "/auth/verify-otp/",
 } as const;
 
 
@@ -124,9 +129,17 @@ export const RIDER = {
   accept: (id: string | number) => `/orders/${id}/status/`,
   reject: (id: string | number) => `/orders/${id}/reject/`,
   location: (id: string | number) => `/orders/${id}/rider-location/`,
-  /** Not exposed by Django yet — callers fall back to local data on 404 */
+  /**
+   * Rider endpoints: the master guide says NO `/auth/` prefix, the v2.4 system
+   * guide shows `/api/auth/rider/...`. UNCONFIRMED — callers try the plain path
+   * first and fall back to the `/auth/` twin on 404.
+   */
   earnings: "/rider/earnings/",
+  earningsAlt: "/auth/rider/earnings/",
   profile: "/rider/profile/",
+  profileAlt: "/auth/rider/profile/",
   dutyStatus: "/rider/duty-status/",
+  dutyStatusAlt: "/auth/rider/duty-status/",
   locationShare: "/rider/location-share/",
+  locationShareAlt: "/auth/rider/location-share/",
 } as const;
