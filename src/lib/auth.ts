@@ -248,15 +248,30 @@ export function passwordProblem(pw: string): string | null {
 
 type MeResponse = {
   role?: AccountRole;
-  user?: { role?: AccountRole };
+  user?: { role?: AccountRole; must_change_password?: boolean; tenant?: TenantInfo };
   is_superuser?: boolean;
   is_staff?: boolean;
   is_email_verified?: boolean;
+  must_change_password?: boolean;
+  tenant?: TenantInfo;
 };
 
 /** Last profile flags seen from `/api/profile/` (server truth, never localStorage). */
 let _emailVerified: boolean | null = null;
 export const isEmailVerified = () => _emailVerified;
+
+/**
+ * SLICE 1.4 — forced password change.
+ * Server truth for `must_change_password`; the guard blocks every other page
+ * while this is true.
+ */
+let _mustChangePassword: boolean | null = null;
+export const mustChangePassword = () => _mustChangePassword ?? readAccount()?.mustChangePassword ?? false;
+export function clearMustChangePassword() {
+  _mustChangePassword = false;
+  const cached = readAccount();
+  if (cached) publish({ ...cached, mustChangePassword: false });
+}
 
 export async function verifyRole(opts: { force?: boolean } = {}): Promise<AccountRole | null> {
   if (!isBackendConfigured() || !tokens.access()) return null;
