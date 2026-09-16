@@ -205,10 +205,17 @@ export async function verifyPhoneCode(phone: string, code: string): Promise<Phon
   assertBackend();
 
   const cleanPhone = normalizePhone(phone);
-  const res = await api.post<PhoneVerifyResponse>(AUTH.phoneVerify, {
-    phone: cleanPhone,
-    code: code.trim(),
-  });
+  const body = { phone: cleanPhone, code: code.trim() };
+
+  // The two backend guides spell this path differently. Try the documented one,
+  // fall back to the other only when the first simply isn't there.
+  let res: PhoneVerifyResponse;
+  try {
+    res = await api.post<PhoneVerifyResponse>(AUTH.phoneVerify, body);
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 404) throw err;
+    res = await api.post<PhoneVerifyResponse>(AUTH.phoneVerifyAlt, body);
+  }
 
   tokens.set(res.access, res.refresh);
 
