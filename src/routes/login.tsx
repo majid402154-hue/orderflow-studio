@@ -196,7 +196,116 @@ function LoginPage() {
         </>
       }
     >
-      <form onSubmit={submit} className="space-y-5">
+      <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-charcoal/5 p-1">
+        {(["phone", "password"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+              volt.say(
+                m === "phone"
+                  ? "Just your number — we'll text a code."
+                  : "Staff sign-in. Username and password.",
+              );
+            }}
+            className={cn(
+              "rounded-xl px-3 py-2 text-[12px] font-extrabold transition",
+              mode === m ? "bg-white text-flame shadow-sm" : "text-charcoal/55 hover:text-charcoal",
+            )}
+          >
+            {m === "phone" ? "Phone code" : "Password"}
+          </button>
+        ))}
+      </div>
+
+      {mode === "phone" && (
+        <form onSubmit={codeSent ? submitCode : sendCode} className="space-y-5">
+          <label className="auth-field-wrap block">
+            <Phone className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-charcoal/40" />
+            <input
+              type="tel"
+              value={phone}
+              placeholder="Mobile number (e.g. 0300 1234567)"
+              className="auth-field"
+              autoComplete="tel"
+              inputMode="tel"
+              disabled={codeSent}
+              onFocus={() => {
+                volt.setTurned(false);
+                volt.setMoodSafe("watching");
+                volt.say("Your number — no password needed.");
+                volt.follow(phone);
+              }}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                volt.follow(e.target.value);
+                volt.setMoodSafe(e.target.value.length > 5 ? "happy" : "watching");
+              }}
+            />
+          </label>
+
+          {codeSent && (
+            <>
+              <label className="auth-field-wrap block">
+                <KeyRound className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-charcoal/40" />
+                <input
+                  type="text"
+                  value={code}
+                  placeholder="6-digit code"
+                  className="auth-field tracking-[0.4em]"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                />
+              </label>
+              <div className="flex items-center justify-between text-[12px] font-bold">
+                <button
+                  type="button"
+                  className="text-charcoal/55 hover:text-charcoal"
+                  onClick={() => {
+                    setCodeSent(false);
+                    setCode("");
+                  }}
+                >
+                  Change number
+                </button>
+                <button
+                  type="button"
+                  disabled={resendIn > 0 || isSubmitting}
+                  className="text-flame disabled:text-charcoal/35"
+                  onClick={() => void sendCode()}
+                >
+                  {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend code"}
+                </button>
+              </div>
+            </>
+          )}
+
+          <p className="text-[12px] font-semibold text-charcoal/55">
+            First time? No sign-up needed — your number becomes your account.
+          </p>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+            className={cn("auth-cta", isSubmitting && "btn-pending")}
+          >
+            {isSubmitting ? <span className="btn-spinner" aria-hidden /> : <span aria-hidden>📱</span>}
+            {isSubmitting ? (
+              <span className="btn-dots">{codeSent ? "Checking your code" : "Sending code"}</span>
+            ) : codeSent ? (
+              "Verify & sign in"
+            ) : (
+              "Send me a code"
+            )}
+          </button>
+        </form>
+      )}
+
+      <form onSubmit={submit} className={cn("space-y-5", mode !== "password" && "hidden")}>
         <label className="auth-field-wrap block">
           <Mail className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-charcoal/40" />
           <input
