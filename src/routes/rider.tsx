@@ -15,37 +15,8 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/rider")({
   ssr: false,
-  beforeLoad: async ({ location }) => {
-    // Avoid SSR redirect crashes in browserless Nitro runtime
-    if (typeof window === "undefined") return;
-    const account = readAccount();
-    if (!account) {
-      throw redirect({
-        to: "/login",
-        search: { next: location.pathname },
-      });
-    }
-    // Backend-verified role with robust fallback to cached authenticated account
-    let role = account.role;
-    try {
-      const verified = await verifyRole();
-      if (verified) role = verified;
-    } catch {
-      role = account.role;
-    }
-    // Block customers and redirect to their profile
-    if (role === "customer") {
-      throw redirect({
-        to: "/profile",
-      });
-    }
-    // Kitchen staff redirected to admin orders
-    if (role === "kitchen" || role === "staff") {
-      throw redirect({
-        to: "/admin/orders",
-      });
-    }
-  },
+  // SLICE 1.2 — riders only; every other role bounces to its own home.
+  beforeLoad: requireRole(RIDER_ROLES),
   head: () => ({
     meta: [
       { title: "Rider Console — Kennedy Moon Grill" },
