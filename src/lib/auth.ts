@@ -168,6 +168,76 @@ export async function signIn(usernameOrEmail: string, pass: string): Promise<Aut
   return account;
 }
 
+/* ===========================================================================
+ * SLICE 2.1 — phone + code sign-in, with invisible registration.
+ * A customer types a phone number, gets a 6-digit code, and is signed in.
+ * A phone we've never seen becomes an account on the server — no password step.
+ * ========================================================================= */
+
+export type PhoneSignInResult = { account: AuthAccount; isNewCustomer: boolean };
+
+type PhoneVerifyResponse = BackendLoginResponse & {
+  is_new_customer?: boolean;
+  /** UNCONFIRMED spelling — read both. */
+  new_customer?: boolean;
+};
+
+/** Digits only, so "0300 123 4567" and "+92 300 123 4567" both work. */
+export function normalizePhone(raw: string): string {
+  return raw.replace(/[^\d+]/g, "");
+}
+
+export function phoneProblem(raw: string): string | null {
+  const digits = normalizePhone(raw).replace(/\D/g, "");
+  if (digits.length < 10) return "Enter your full mobile number.";
+  if (digits.length > 15) return "That number looks too long.";
+  return null;
+}
+
+/** POST /auth/phone-otp/ — asks the server to text a login code. */
+export async function requestPhoneCode(phone: string): Promise<void> {
+  assertBackend();
+  await api.post<{ message?: string }>(AUTH.phoneOtp, { phone: normalizePhone(phone) });
+}
+
+/** POST /auth/phone-verify/ — trades the code for a session. */
+export async function verifyPhoneCode(phone: string, code: string): Promise<PhoneSignInResult> {
+  assertBackend();
+
+  const cleanPhone = normalizePhone(phone);
+  const res = await api.post<PhoneVerifyResponse>(AUTH.phoneVerify, {
+    phone: cleanPhone,
+    code: code.trim(),
+  });
+
+  tokens.set(res.access, res.refresh);
+
+  const u = res.user;
+  if (u?.tenant) rememberTenant(u.tenant);
+
+  const account: AuthAccount = {
+    id: u?.id ? String(u.id) : `user-${Date.now()}`,
+    name: u?.full_name || u?.username || "Guest",
+    email: u?.email || "",
+    phone: u?.phone || cleanPhone,
+    role: (u?.role || "customer") as AccountRole,
+    status: "active",
+    mustChangePassword: Boolean(res.must_change_password ?? u?.must_change_password),
+    createdAt: new Date().toISOString(),
+  };
+
+  publish(account);
+
+  const verified = await verifyRole({ force: true });
+  const finalAccount = verified && verified !== account.role ? { ...account, role: verified } : account;
+  if (finalAccount !== account) publish(finalAccount);
+
+  return {
+    account: finalAccount,
+    isNewCustomer: Boolean(res.is_new_customer ?? res.new_customer),
+  };
+}
+
 export async function signUp(input: {
   name: string;
   email: string;
