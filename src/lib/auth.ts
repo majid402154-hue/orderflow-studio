@@ -139,14 +139,19 @@ export async function signIn(usernameOrEmail: string, pass: string): Promise<Aut
   tokens.set(res.access, res.refresh);
 
   const u = res.user;
+  // Login tells us which restaurant this user belongs to — every later request
+  // is scoped to it (slice 1.1).
+  if (u?.tenant) rememberTenant(u.tenant);
+
   // The role ALWAYS comes from the backend — never from a UI toggle.
   const account: AuthAccount = {
     id: u?.id ? String(u.id) : `user-${Date.now()}`,
     name: u?.full_name || u?.username || usernameOrEmail.split("@")[0] || "User",
     email: u?.email || (usernameOrEmail.includes("@") ? usernameOrEmail : ""),
-    phone: "",
+    phone: u?.phone || (/^\d[\d\s+-]{6,}$/.test(usernameOrEmail.trim()) ? usernameOrEmail.trim() : ""),
     role: (u?.role || ((u as { is_superuser?: boolean } | undefined)?.is_superuser ? "admin" : "customer")) as AccountRole,
     status: "active",
+    mustChangePassword: Boolean(res.must_change_password ?? u?.must_change_password),
     createdAt: new Date().toISOString(),
   };
 
