@@ -1,6 +1,7 @@
 import type { Dish } from "./menu";
 import { api, isBackendConfigured, tokens } from "@/lib/api/client";
 import { PROFILE } from "@/lib/api/endpoints";
+import { STATUS_FLOW, STATUS_HINT, STATUS_LABEL, type OrderStatus } from "@/lib/order-status";
 
 export type Address = {
   id?: string | number;

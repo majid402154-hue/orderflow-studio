@@ -22,7 +22,8 @@
  *     vehicle       str      e.g. "Honda CD 70 — LEB 4471"
  *     rating        number   0..5, one decimal
  *     deliveries    int      lifetime completed deliveries
- *     status        "idle" | "picking" | "onway" | "delivered"
+ *     status        "idle" plus the shared order vocabulary (confirmed | kitchen |
+ *                   packed | onway | delivered)
  *     eta_minutes   int|null
  *
  * TO GO LIVE: swap the body of `fetchAssignedCaddy` / `rateCaddy` for
@@ -31,8 +32,14 @@
 import fallbackAvatar from "@/assets/caddy-avatar.jpg";
 import { api, isBackendConfigured, tokens } from "@/lib/api/client";
 import { ORDERS, PROFILE } from "@/lib/api/endpoints";
+import type { OrderStatus } from "@/lib/order-status";
 
-export type CaddyStatus = "idle" | "picking" | "onway" | "delivered" | "confirmed" | "kitchen" | "packed";
+/**
+ * SLICE 1.3 — the rider card reuses the shared order vocabulary. "idle" is the
+ * only extra state (rider assigned, nothing happening yet). The old "picking"
+ * spelling is gone; use "onway".
+ */
+export type CaddyStatus = "idle" | Exclude<OrderStatus, "pending" | "cancelled">;
 
 export type Caddy = {
   id: string;
@@ -50,7 +57,6 @@ export const CADDY_FALLBACK_AVATAR = fallbackAvatar;
 
 export const CADDY_STATUS_LABEL: Record<CaddyStatus, string> = {
   idle: "Standing by",
-  picking: "Picking up your order",
   confirmed: "Order confirmed",
   kitchen: "In the kitchen",
   packed: "Packed & sealed",

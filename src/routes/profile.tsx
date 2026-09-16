@@ -133,7 +133,7 @@ function ProfilePage() {
   const caddyStatus: CaddyStatus | null = ordersQuery.data?.some((o) => o.status !== "delivered")
     ? ordersQuery.data.some((o) => o.status === "onway")
       ? "onway"
-      : "picking"
+      : "kitchen"
     : null;
 
   const caddyQuery = useQuery({
