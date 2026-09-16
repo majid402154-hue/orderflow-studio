@@ -114,6 +114,73 @@ function LoginPage() {
 
   }
 
+  /** Friendly wording when the phone-code feature isn't switched on yet. */
+  function phoneError(err: unknown): string {
+    if (err instanceof ApiError) {
+      if (err.status === 404 || err.status === 501)
+        return "Sign in by code isn't switched on yet. Use your password for now.";
+      if (err.status === 429) return "Too many code requests. Please wait a minute.";
+      return err.message;
+    }
+    return (err as Error)?.message || "Something went wrong. Please try again.";
+  }
+
+  async function sendCode(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (isSubmitting) return;
+    const problem = phoneProblem(phone);
+    if (problem) {
+      volt.complain(problem);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await requestPhoneCode(phone);
+      setCodeSent(true);
+      setResendIn(45);
+      volt.say("Code sent. Check your messages.");
+      toast.success("We sent a 6-digit code to your phone.");
+    } catch (err) {
+      const msg = phoneError(err);
+      volt.complain(msg);
+      toast.error(msg);
+      if (msg.startsWith("Sign in by code")) setMode("password");
+    } finally {
+      setIsSubmitting(false);
+      setIsWaking(false);
+    }
+  }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (isSubmitting || volt.done) return;
+    if (code.trim().length < 4) {
+      volt.complain("Enter the 6-digit code we texted you.");
+      return;
+    }
+    setIsSubmitting(true);
+    const minPending = new Promise((r) => setTimeout(r, 550));
+    try {
+      const [{ account, isNewCustomer }] = await Promise.all([
+        verifyPhoneCode(phone, code),
+        minPending,
+      ]);
+      const target = ROLE_HOME[account.role] || "/profile";
+      volt.celebrate(isNewCustomer ? "Welcome to Kennedy! You're in." : "Grill's hot. Welcome back!");
+      toast.success(isNewCustomer ? "Account ready — welcome!" : `Welcome back, ${account.name}`);
+      setTimeout(() => navigate({ to: target }), 800);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError && err.status === 400
+          ? "That code doesn't match. Check it and try again."
+          : phoneError(err);
+      volt.complain(msg);
+      toast.error(msg);
+      setIsSubmitting(false);
+      setIsWaking(false);
+    }
+  }
+
   return (
     <VoltScene
       volt={volt}
