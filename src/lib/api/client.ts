@@ -23,6 +23,8 @@
  * request by `normalizePath()`, so both spellings resolve to the same URL and
  * never produce `/api/api/...`.
  */
+import { currentTenantSlug } from "@/lib/tenant";
+
 export const API_BASE_URL: string = (
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? ""
 )
@@ -222,7 +224,12 @@ async function request<T>(
     if (v !== undefined) url.searchParams.set(k, String(v));
   });
 
-  const headers: Record<string, string> = { Accept: "application/json" };
+  // SLICE 1.1 — every request is scoped to the active restaurant. Resolved from
+  // the tenant context, never hardcoded in a caller.
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Tenant-Slug": currentTenantSlug(),
+  };
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (AUTH_MODE === "jwt") {
