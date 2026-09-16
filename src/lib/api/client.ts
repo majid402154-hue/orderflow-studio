@@ -169,7 +169,11 @@ async function refreshAccessToken(): Promise<string> {
     try {
       res = await fetch(`${API_BASE_URL}${refreshPath}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Tenant-Slug": currentTenantSlug(),
+        },
         body: JSON.stringify({ refresh }),
       });
     } catch {
