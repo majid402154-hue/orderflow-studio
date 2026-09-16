@@ -9,7 +9,8 @@
  */
 import { redirect } from "@tanstack/react-router";
 
-import { ROLE_HOME, readAccount, verifyRole, type AccountRole } from "@/lib/auth";
+import { mustChangePassword, readAccount, verifyRole, type AccountRole } from "@/lib/auth";
+import { normalizeRole, roleHome, type AppRole } from "@/lib/roles";
 
 /** Where the user was heading, so login can bounce them straight back. */
 export type RedirectSearch = { redirect?: string };
