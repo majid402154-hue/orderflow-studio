@@ -45,6 +45,20 @@ function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWaking, setIsWaking] = useState(false);
 
+  // SLICE 2.1 — customers sign in with a phone number and a 6-digit code.
+  // Staff keep the password form.
+  const [mode, setMode] = useState<"phone" | "password">("phone");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
   // Railway free tier sleeps: the first request can take 10-30s. Show it.
   useEffect(() => {
     const slow = () => setIsWaking(true);
