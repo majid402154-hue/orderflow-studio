@@ -3,6 +3,8 @@ import { BadgeCheck, Bike, MapPin, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, isBackendConfigured, tokens } from "@/lib/api/client";
+// SLICE 1.6 — admin paths come from the endpoint list, never hand-typed here.
+import { ADMIN } from "@/lib/api/endpoints";
 import {
   Bar,
   BarChart,
