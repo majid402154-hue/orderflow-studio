@@ -5,7 +5,13 @@ import { toast } from "sonner";
 
 import { VoltScene, VoltStrength } from "@/components/auth/chef-volt";
 import { EMAIL_RE, pickLine, useChefVolt } from "@/hooks/use-chef-volt";
-import { ROLE_HOME, signIn } from "@/lib/auth";
+import {
+  ROLE_HOME,
+  phoneProblem,
+  requestPhoneCode,
+  signIn,
+  verifyPhoneCode,
+} from "@/lib/auth";
 import { API_SLOW_DONE_EVENT, API_SLOW_EVENT, ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
