@@ -4,13 +4,14 @@ import { CloudOff, Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  API_BASE_URL,
+  apiUrl,
   API_OFFLINE_EVENT,
   API_ONLINE_EVENT,
   API_SLOW_DONE_EVENT,
   API_SLOW_EVENT,
   isBackendConfigured,
 } from "@/lib/api/client";
+import { MENU } from "@/lib/api/endpoints";
 
 /**
  * Global connection status.
@@ -32,7 +33,9 @@ export function ConnectionBanner() {
   const ping = useCallback(async () => {
     if (!isBackendConfigured()) return false;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/menu/`, {
+      // SLICE 1.6 — was `${API_BASE_URL}/api/menu/`, which became /api/api/menu/
+      // whenever the configured base URL already ended in /api.
+      const res = await fetch(apiUrl(MENU.categories), {
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
