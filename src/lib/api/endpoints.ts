@@ -23,6 +23,13 @@ export const AUTH = {
   sendOtp: "/auth/send-otp/",
   /** POST {code} -> marks profile.is_email_verified = true */
   verifyOtp: "/auth/verify-otp/",
+  /** SLICE 2.1 — POST {phone} -> {message}. Sends a 6-digit login code by SMS. */
+  phoneOtp: "/auth/phone-otp/",
+  /**
+   * SLICE 2.1 — POST {phone, code} -> {access, refresh, is_new_customer, user}.
+   * A phone we've never seen becomes a customer account silently (no password).
+   */
+  phoneVerify: "/auth/phone-verify/",
 } as const;
 
 

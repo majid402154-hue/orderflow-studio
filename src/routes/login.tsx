@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Lock, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 import { VoltScene, VoltStrength } from "@/components/auth/chef-volt";
 import { EMAIL_RE, pickLine, useChefVolt } from "@/hooks/use-chef-volt";
-import { ROLE_HOME, signIn } from "@/lib/auth";
+import {
+  ROLE_HOME,
+  phoneProblem,
+  requestPhoneCode,
+  signIn,
+  verifyPhoneCode,
+} from "@/lib/auth";
 import { API_SLOW_DONE_EVENT, API_SLOW_EVENT, ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +44,20 @@ function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWaking, setIsWaking] = useState(false);
+
+  // SLICE 2.1 — customers sign in with a phone number and a 6-digit code.
+  // Staff keep the password form.
+  const [mode, setMode] = useState<"phone" | "password">("phone");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   // Railway free tier sleeps: the first request can take 10-30s. Show it.
   useEffect(() => {
@@ -94,6 +114,73 @@ function LoginPage() {
 
   }
 
+  /** Friendly wording when the phone-code feature isn't switched on yet. */
+  function phoneError(err: unknown): string {
+    if (err instanceof ApiError) {
+      if (err.status === 404 || err.status === 501)
+        return "Sign in by code isn't switched on yet. Use your password for now.";
+      if (err.status === 429) return "Too many code requests. Please wait a minute.";
+      return err.message;
+    }
+    return (err as Error)?.message || "Something went wrong. Please try again.";
+  }
+
+  async function sendCode(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (isSubmitting) return;
+    const problem = phoneProblem(phone);
+    if (problem) {
+      volt.complain(problem);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await requestPhoneCode(phone);
+      setCodeSent(true);
+      setResendIn(45);
+      volt.say("Code sent. Check your messages.");
+      toast.success("We sent a 6-digit code to your phone.");
+    } catch (err) {
+      const msg = phoneError(err);
+      volt.complain(msg);
+      toast.error(msg);
+      if (msg.startsWith("Sign in by code")) setMode("password");
+    } finally {
+      setIsSubmitting(false);
+      setIsWaking(false);
+    }
+  }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (isSubmitting || volt.done) return;
+    if (code.trim().length < 4) {
+      volt.complain("Enter the 6-digit code we texted you.");
+      return;
+    }
+    setIsSubmitting(true);
+    const minPending = new Promise((r) => setTimeout(r, 550));
+    try {
+      const [{ account, isNewCustomer }] = await Promise.all([
+        verifyPhoneCode(phone, code),
+        minPending,
+      ]);
+      const target = ROLE_HOME[account.role] || "/profile";
+      volt.celebrate(isNewCustomer ? "Welcome to Kennedy! You're in." : "Grill's hot. Welcome back!");
+      toast.success(isNewCustomer ? "Account ready — welcome!" : `Welcome back, ${account.name}`);
+      setTimeout(() => navigate({ to: target }), 800);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError && err.status === 400
+          ? "That code doesn't match. Check it and try again."
+          : phoneError(err);
+      volt.complain(msg);
+      toast.error(msg);
+      setIsSubmitting(false);
+      setIsWaking(false);
+    }
+  }
+
   return (
     <VoltScene
       volt={volt}
@@ -109,7 +196,116 @@ function LoginPage() {
         </>
       }
     >
-      <form onSubmit={submit} className="space-y-5">
+      <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-charcoal/5 p-1">
+        {(["phone", "password"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+              volt.say(
+                m === "phone"
+                  ? "Just your number — we'll text a code."
+                  : "Staff sign-in. Username and password.",
+              );
+            }}
+            className={cn(
+              "rounded-xl px-3 py-2 text-[12px] font-extrabold transition",
+              mode === m ? "bg-white text-flame shadow-sm" : "text-charcoal/55 hover:text-charcoal",
+            )}
+          >
+            {m === "phone" ? "Phone code" : "Password"}
+          </button>
+        ))}
+      </div>
+
+      {mode === "phone" && (
+        <form onSubmit={codeSent ? submitCode : sendCode} className="space-y-5">
+          <label className="auth-field-wrap block">
+            <Phone className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-charcoal/40" />
+            <input
+              type="tel"
+              value={phone}
+              placeholder="Mobile number (e.g. 0300 1234567)"
+              className="auth-field"
+              autoComplete="tel"
+              inputMode="tel"
+              disabled={codeSent}
+              onFocus={() => {
+                volt.setTurned(false);
+                volt.setMoodSafe("watching");
+                volt.say("Your number — no password needed.");
+                volt.follow(phone);
+              }}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                volt.follow(e.target.value);
+                volt.setMoodSafe(e.target.value.length > 5 ? "happy" : "watching");
+              }}
+            />
+          </label>
+
+          {codeSent && (
+            <>
+              <label className="auth-field-wrap block">
+                <KeyRound className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-charcoal/40" />
+                <input
+                  type="text"
+                  value={code}
+                  placeholder="6-digit code"
+                  className="auth-field tracking-[0.4em]"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  maxLength={6}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                />
+              </label>
+              <div className="flex items-center justify-between text-[12px] font-bold">
+                <button
+                  type="button"
+                  className="text-charcoal/55 hover:text-charcoal"
+                  onClick={() => {
+                    setCodeSent(false);
+                    setCode("");
+                  }}
+                >
+                  Change number
+                </button>
+                <button
+                  type="button"
+                  disabled={resendIn > 0 || isSubmitting}
+                  className="text-flame disabled:text-charcoal/35"
+                  onClick={() => void sendCode()}
+                >
+                  {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend code"}
+                </button>
+              </div>
+            </>
+          )}
+
+          <p className="text-[12px] font-semibold text-charcoal/55">
+            First time? No sign-up needed — your number becomes your account.
+          </p>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+            className={cn("auth-cta", isSubmitting && "btn-pending")}
+          >
+            {isSubmitting ? <span className="btn-spinner" aria-hidden /> : <span aria-hidden>📱</span>}
+            {isSubmitting ? (
+              <span className="btn-dots">{codeSent ? "Checking your code" : "Sending code"}</span>
+            ) : codeSent ? (
+              "Verify & sign in"
+            ) : (
+              "Send me a code"
+            )}
+          </button>
+        </form>
+      )}
+
+      <form onSubmit={submit} className={cn("space-y-5", mode !== "password" && "hidden")}>
         <label className="auth-field-wrap block">
           <Mail className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-charcoal/40" />
           <input

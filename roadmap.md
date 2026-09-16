@@ -12,7 +12,7 @@ Review after every slice, then continue to the next.
 
 ## Phase 2 — Customer Flow Upgrade
 BLOCKER: confirm backend accepts multi-item `items: []` before starting (test order).
-- [ ] 2.1 Phone+code sign-in, silent account creation
+- [x] 2.1 Phone+code sign-in, silent account creation (details in /roadmap folder)
 - [ ] 2.2 Branch picker
 - [ ] 2.3 Dish size selection
 - [ ] 2.4 Multi-item cart
