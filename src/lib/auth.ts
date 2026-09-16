@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { ApiError, api, isBackendConfigured, tokens } from "@/lib/api/client";
 import { AUTH } from "@/lib/api/endpoints";
+import { ROLE_HOME as ROLE_HOME_BY_ROLE, type AppRole } from "@/lib/roles";
+import { rememberTenant, type TenantInfo } from "@/lib/tenant";
 
-export type AccountRole = "customer" | "staff" | "rider" | "admin" | "kitchen";
+/**
+ * Roles live in `src/lib/roles.ts` (slice 1.2). `AccountRole` stays exported
+ * here for the screens that already import it, but it now covers all seven
+ * backend roles plus the legacy `staff` spelling.
+ */
+export type AccountRole = AppRole | "staff";
 
 export type AuthAccount = {
   id: string;
@@ -11,19 +18,19 @@ export type AuthAccount = {
   phone: string;
   role: AccountRole;
   status?: "active" | "pending_approval" | "inactive";
+  /** Staff created by an owner get a temp password they must replace. */
+  mustChangePassword?: boolean;
   createdAt: string;
 };
 
 const KEY = "kmg.auth.v1";
 export const AUTH_EVENT = "kmg-auth-change";
 
-export const ROLE_HOME: Record<string, string> = {
-  customer: "/profile",
-  staff: "/admin/orders",
-  kitchen: "/admin/orders",
-  admin: "/admin",
-  rider: "/rider",
-};
+export { normalizeRole, roleHome, ROLE_LABEL } from "@/lib/roles";
+export type { AppRole } from "@/lib/roles";
+
+/** Kept as a plain map for existing callers; the source of truth is roles.ts. */
+export const ROLE_HOME: Record<string, string> = { ...ROLE_HOME_BY_ROLE, staff: "/kitchen" };
 
 export const ROLE_COPY: Record<
   AccountRole,
@@ -41,17 +48,32 @@ export const ROLE_COPY: Record<
   },
   staff: {
     label: "Kitchen Staff",
-    tagline: "Kitchen console: manage tickets, cooking and packing",
-    destination: "Staff dashboard",
+    tagline: "Kitchen console: tickets, cooking and packing",
+    destination: "Kitchen screen",
   },
   kitchen: {
     label: "Kitchen Staff",
-    tagline: "Kitchen console: manage tickets, cooking and packing",
-    destination: "Staff dashboard",
+    tagline: "Kitchen console: tickets, cooking and packing",
+    destination: "Kitchen screen",
+  },
+  cashier: {
+    label: "Cashier",
+    tagline: "Take orders, confirm payments and print receipts",
+    destination: "Orders desk",
+  },
+  manager: {
+    label: "Manager",
+    tagline: "Run the branch: orders, menu, riders and stock",
+    destination: "Manager console",
   },
   admin: {
-    label: "Owner / Admin",
-    tagline: "Owner console: orders, payments, riders and revenue graphs",
+    label: "Admin",
+    tagline: "Full console: orders, payments, riders and revenue graphs",
+    destination: "Admin console",
+  },
+  owner: {
+    label: "Owner",
+    tagline: "Everything, plus staff, branches and billing",
     destination: "Owner console",
   },
 };
