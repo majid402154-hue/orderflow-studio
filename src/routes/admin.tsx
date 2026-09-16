@@ -14,7 +14,9 @@ import { toast } from "sonner";
 
 import { ConsoleShell } from "@/components/admin/console-shell";
 import { resetDemoData, useAdmin, orderStats } from "@/lib/admin-store";
-import { readAccount, signOut, verifyRole, ROLE_HOME } from "@/lib/auth";
+import { readAccount, signOut, ROLE_HOME } from "@/lib/auth";
+import { requireRole } from "@/lib/auth-guard";
+import { ADMIN_ROLES } from "@/lib/roles";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,

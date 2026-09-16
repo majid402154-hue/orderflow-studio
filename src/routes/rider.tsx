@@ -9,7 +9,9 @@ import { useSetRiderStatusMutation } from "@/hooks/use-order-mutations";
 import { apiSetRiderLocation } from "@/lib/api/order-mutations";
 import { isBackendConfigured } from "@/lib/api/client";
 import { captureRiderLocation } from "@/lib/rider-location";
-import { readAccount, signOut, verifyRole, type AuthAccount } from "@/lib/auth";
+import { readAccount, signOut, type AuthAccount } from "@/lib/auth";
+import { requireRole } from "@/lib/auth-guard";
+import { RIDER_ROLES } from "@/lib/roles";
 import { playSfx } from "@/lib/sfx";
 import { cn } from "@/lib/utils";
 
