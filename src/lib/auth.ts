@@ -107,12 +107,17 @@ export function publish(next: AuthAccount | null) {
 type BackendLoginResponse = {
   access: string;
   refresh: string;
+  /** Owner-created staff log in with a temp password and must replace it. */
+  must_change_password?: boolean;
   user?: {
     id: number;
     username: string;
     email: string;
+    phone?: string;
     role: AccountRole;
     full_name?: string;
+    must_change_password?: boolean;
+    tenant?: TenantInfo;
   };
 };
 
