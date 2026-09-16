@@ -159,6 +159,13 @@ export function normalizePath(p: string): string {
 }
 
 
+/**
+ * SLICE 1.6 — the ONLY way to build a full backend URL outside `request()`.
+ * Callers that hand-built `${API_BASE_URL}/api/...` produced `/api/api/...`
+ * whenever the base URL already ended in `/api`.
+ */
+export const apiUrl = (path: string) => `${API_BASE_URL}${normalizePath(path)}`;
+
 async function refreshAccessToken(): Promise<string> {
   if (_refreshPromise) return _refreshPromise;
   _refreshPromise = (async () => {
