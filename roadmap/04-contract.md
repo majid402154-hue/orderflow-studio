@@ -40,3 +40,27 @@ customer order 3–5s · admin feed 10s · rider jobs 10–15s · rider GPS shar
 orders status + assign-rider + controls · `/api/admin/menu/*` (+ multipart image upload) ·
 `/api/inventory/` · `POST /api/admin/staff/` (returns one-time temp password) ·
 `/api/admin/branches/` · `/api/billing/*` · `/api/orders/analytics/` (defensive parse)
+
+---
+
+# v2.4 system-guide deltas (16 Sep 2026)
+
+- **Realtime confirmed**: `ws/orders/{order_code}/` (customer), `ws/kitchen/` (KDS),
+  `ws/admin/fleet/` (control room). Payload: `{type:"order_update", order_code, status,
+  rider:{name, phone, lat, lng}}`. Sockets are addressed by **order_code**, not id.
+- **Multi-item checkout confirmed**, with `branch_id`, `payment`, `items[]` and an
+  address carrying `lat, lng, street, area, city`.
+- **OTP is delivered over WhatsApp** (Evolution API). Send `/api/auth/phone-otp/`;
+  verify path spelled `/phone-verify/` in one guide, `/verify-otp/` in the other.
+- **Stock**: confirming an order deducts ingredients by recipe; not enough stock returns
+  `409 insufficient_stock`; cancelling restores stock.
+- **Payments**: COD auto-verifies on delivery. JazzCash/EasyPaisa need a reference number
+  plus a screenshot, reviewed via `POST /api/orders/{id}/verify-payment/`. Card is webhook-verified.
+- **Cashier/POS**: counter orders created with `source: "pos"`; receipts print ESC/POS.
+- **Branches** carry opening hours and a delivery radius; inventory and kitchen are per branch.
+- **Role matrix** (from the guide): kitchen may assign a rider; rider alone moves
+  `packed -> onway -> delivered`; manager sees analytics and inventory but not staff;
+  only admin/owner manage staff; only owner manages the SaaS subscription.
+- **Orders list filter**: `GET /api/orders/?status=confirmed,kitchen`.
+- **Rider paths** appear as `/api/auth/rider/duty-status/` and `/api/auth/rider/earnings/`
+  here, contradicting the master guide — both spellings are tried.
