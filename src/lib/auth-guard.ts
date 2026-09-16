@@ -21,7 +21,9 @@ export const validateRedirectSearch = (search: Record<string, unknown>): Redirec
   return typeof raw === "string" && raw.startsWith("/") && !raw.startsWith("//") ? { redirect: raw } : {};
 };
 
-export function requireRole(allowed: AccountRole[]) {
+export function requireRole(allowed: Array<AppRole | AccountRole>) {
+  const allowedRoles = allowed.map(normalizeRole);
+
   return async ({ location }: { location: { href: string } }) => {
     // These routes render client-side (ssr: false), so localStorage is safe.
     if (typeof window === "undefined") return;
@@ -32,16 +34,21 @@ export function requireRole(allowed: AccountRole[]) {
     }
 
     // Server-verified role wins; cached role is the offline fallback.
-    let role: AccountRole = account.role;
+    let role: AppRole = normalizeRole(account.role);
     try {
       const verified = await verifyRole();
-      if (verified) role = verified;
+      if (verified) role = normalizeRole(verified);
     } catch {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
 
-    if (!allowed.includes(role)) {
-      throw redirect({ to: ROLE_HOME[role] ?? "/" });
+    // SLICE 1.4 — a temp password locks the whole app until it is replaced.
+    if (mustChangePassword() && !location.href.startsWith("/change-password")) {
+      throw redirect({ to: "/change-password", search: { redirect: location.href } });
+    }
+
+    if (!allowedRoles.includes(role)) {
+      throw redirect({ to: roleHome(role) });
     }
   };
 }
