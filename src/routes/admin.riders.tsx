@@ -3,6 +3,8 @@ import { BadgeCheck, Bike, MapPin, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, isBackendConfigured, tokens } from "@/lib/api/client";
+// SLICE 1.6 — admin paths come from the endpoint list, never hand-typed here.
+import { ADMIN } from "@/lib/api/endpoints";
 import {
   Bar,
   BarChart,
@@ -100,7 +102,7 @@ function Riders() {
   async function loadPending() {
     if (isBackendConfigured() && tokens.access()) {
       try {
-        const res = await api.get<PendingData>("/admin/pending-approvals/");
+        const res = await api.get<PendingData>(ADMIN.pendingApprovals);
         if (res && (res.tier1 || res.tier2)) {
           setPending(res);
         }
@@ -116,7 +118,7 @@ function Riders() {
 
   async function handleApprove(userId: number) {
     try {
-      await api.post(`/admin/riders/${userId}/approve/`, {});
+      await api.post(ADMIN.approveRider(userId), {});
       toast.success("Account approved and activated in database!");
       void loadPending();
       void syncLiveBackendData();
@@ -127,7 +129,7 @@ function Riders() {
 
   async function handleVerify(userId: number) {
     try {
-      await api.post(`/admin/riders/${userId}/fleet-verify/`, { verified: true });
+      await api.post(ADMIN.fleetVerify(userId), { verified: true });
       toast.success("Fleet verification complete in database!");
       void loadPending();
       void syncLiveBackendData();
@@ -138,7 +140,7 @@ function Riders() {
 
   async function handleReject(userId: number) {
     try {
-      await api.post(`/admin/riders/${userId}/reject/`, { reason: rejectReason || "Rejected via UI" });
+      await api.post(ADMIN.rejectRider(userId), { reason: rejectReason || "Rejected via UI" });
       toast.success("Application rejected and account permanently removed.");
       setRejectTarget(null);
       setRejectReason("");

@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { ApiError, api, isBackendConfigured, tokens } from "@/lib/api/client";
 import { AUTH } from "@/lib/api/endpoints";
+import { ROLE_HOME as ROLE_HOME_BY_ROLE, type AppRole } from "@/lib/roles";
+import { rememberTenant, type TenantInfo } from "@/lib/tenant";
 
-export type AccountRole = "customer" | "staff" | "rider" | "admin" | "kitchen";
+/**
+ * Roles live in `src/lib/roles.ts` (slice 1.2). `AccountRole` stays exported
+ * here for the screens that already import it, but it now covers all seven
+ * backend roles plus the legacy `staff` spelling.
+ */
+export type AccountRole = AppRole | "staff";
 
 export type AuthAccount = {
   id: string;
@@ -11,19 +18,19 @@ export type AuthAccount = {
   phone: string;
   role: AccountRole;
   status?: "active" | "pending_approval" | "inactive";
+  /** Staff created by an owner get a temp password they must replace. */
+  mustChangePassword?: boolean;
   createdAt: string;
 };
 
 const KEY = "kmg.auth.v1";
 export const AUTH_EVENT = "kmg-auth-change";
 
-export const ROLE_HOME: Record<string, string> = {
-  customer: "/profile",
-  staff: "/admin/orders",
-  kitchen: "/admin/orders",
-  admin: "/admin",
-  rider: "/rider",
-};
+export { normalizeRole, roleHome, ROLE_LABEL } from "@/lib/roles";
+export type { AppRole } from "@/lib/roles";
+
+/** Kept as a plain map for existing callers; the source of truth is roles.ts. */
+export const ROLE_HOME: Record<string, string> = { ...ROLE_HOME_BY_ROLE, staff: "/kitchen" };
 
 export const ROLE_COPY: Record<
   AccountRole,
@@ -41,17 +48,32 @@ export const ROLE_COPY: Record<
   },
   staff: {
     label: "Kitchen Staff",
-    tagline: "Kitchen console: manage tickets, cooking and packing",
-    destination: "Staff dashboard",
+    tagline: "Kitchen console: tickets, cooking and packing",
+    destination: "Kitchen screen",
   },
   kitchen: {
     label: "Kitchen Staff",
-    tagline: "Kitchen console: manage tickets, cooking and packing",
-    destination: "Staff dashboard",
+    tagline: "Kitchen console: tickets, cooking and packing",
+    destination: "Kitchen screen",
+  },
+  cashier: {
+    label: "Cashier",
+    tagline: "Take orders, confirm payments and print receipts",
+    destination: "Orders desk",
+  },
+  manager: {
+    label: "Manager",
+    tagline: "Run the branch: orders, menu, riders and stock",
+    destination: "Manager console",
   },
   admin: {
-    label: "Owner / Admin",
-    tagline: "Owner console: orders, payments, riders and revenue graphs",
+    label: "Admin",
+    tagline: "Full console: orders, payments, riders and revenue graphs",
+    destination: "Admin console",
+  },
+  owner: {
+    label: "Owner",
+    tagline: "Everything, plus staff, branches and billing",
     destination: "Owner console",
   },
 };
@@ -85,12 +107,17 @@ export function publish(next: AuthAccount | null) {
 type BackendLoginResponse = {
   access: string;
   refresh: string;
+  /** Owner-created staff log in with a temp password and must replace it. */
+  must_change_password?: boolean;
   user?: {
     id: number;
     username: string;
     email: string;
+    phone?: string;
     role: AccountRole;
     full_name?: string;
+    must_change_password?: boolean;
+    tenant?: TenantInfo;
   };
 };
 
@@ -112,14 +139,19 @@ export async function signIn(usernameOrEmail: string, pass: string): Promise<Aut
   tokens.set(res.access, res.refresh);
 
   const u = res.user;
+  // Login tells us which restaurant this user belongs to — every later request
+  // is scoped to it (slice 1.1).
+  if (u?.tenant) rememberTenant(u.tenant);
+
   // The role ALWAYS comes from the backend — never from a UI toggle.
   const account: AuthAccount = {
     id: u?.id ? String(u.id) : `user-${Date.now()}`,
     name: u?.full_name || u?.username || usernameOrEmail.split("@")[0] || "User",
     email: u?.email || (usernameOrEmail.includes("@") ? usernameOrEmail : ""),
-    phone: "",
+    phone: u?.phone || (/^\d[\d\s+-]{6,}$/.test(usernameOrEmail.trim()) ? usernameOrEmail.trim() : ""),
     role: (u?.role || ((u as { is_superuser?: boolean } | undefined)?.is_superuser ? "admin" : "customer")) as AccountRole,
     status: "active",
+    mustChangePassword: Boolean(res.must_change_password ?? u?.must_change_password),
     createdAt: new Date().toISOString(),
   };
 
@@ -216,15 +248,30 @@ export function passwordProblem(pw: string): string | null {
 
 type MeResponse = {
   role?: AccountRole;
-  user?: { role?: AccountRole };
+  user?: { role?: AccountRole; must_change_password?: boolean; tenant?: TenantInfo };
   is_superuser?: boolean;
   is_staff?: boolean;
   is_email_verified?: boolean;
+  must_change_password?: boolean;
+  tenant?: TenantInfo;
 };
 
 /** Last profile flags seen from `/api/profile/` (server truth, never localStorage). */
 let _emailVerified: boolean | null = null;
 export const isEmailVerified = () => _emailVerified;
+
+/**
+ * SLICE 1.4 — forced password change.
+ * Server truth for `must_change_password`; the guard blocks every other page
+ * while this is true.
+ */
+let _mustChangePassword: boolean | null = null;
+export const mustChangePassword = () => _mustChangePassword ?? readAccount()?.mustChangePassword ?? false;
+export function clearMustChangePassword() {
+  _mustChangePassword = false;
+  const cached = readAccount();
+  if (cached) publish({ ...cached, mustChangePassword: false });
+}
 
 export async function verifyRole(opts: { force?: boolean } = {}): Promise<AccountRole | null> {
   if (!isBackendConfigured() || !tokens.access()) return null;
@@ -234,6 +281,9 @@ export async function verifyRole(opts: { force?: boolean } = {}): Promise<Accoun
     try {
       const me = await api.get<MeResponse>(AUTH.me);
       if (typeof me.is_email_verified === "boolean") _emailVerified = me.is_email_verified;
+      const flag = me.must_change_password ?? me.user?.must_change_password;
+      if (typeof flag === "boolean") _mustChangePassword = flag;
+      if (me.tenant ?? me.user?.tenant) rememberTenant(me.tenant ?? me.user?.tenant);
       const role = (me.role ||
         me.user?.role ||
         (me.is_superuser ? "admin" : me.is_staff ? "staff" : undefined)) as AccountRole | undefined;

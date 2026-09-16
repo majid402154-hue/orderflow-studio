@@ -14,41 +14,15 @@ import { toast } from "sonner";
 
 import { ConsoleShell } from "@/components/admin/console-shell";
 import { resetDemoData, useAdmin, orderStats } from "@/lib/admin-store";
-import { readAccount, signOut, verifyRole, ROLE_HOME } from "@/lib/auth";
+import { readAccount, signOut, ROLE_HOME } from "@/lib/auth";
+import { requireRole } from "@/lib/auth-guard";
+import { ADMIN_ROLES } from "@/lib/roles";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
-  beforeLoad: async ({ location }) => {
-    // Avoid SSR redirect crashes in browserless Nitro runtime
-    if (typeof window === "undefined") return;
-    const account = readAccount();
-    if (!account) {
-      throw redirect({
-        to: "/login",
-        search: { next: location.pathname },
-      });
-    }
-    // Role is confirmed with the backend with safe fallback to cached role
-    let role = account.role;
-    try {
-      const verified = await verifyRole();
-      if (verified) role = verified;
-    } catch {
-      role = account.role;
-    }
-    // Block customers and direct them to their profile
-    if (role === "customer") {
-      throw redirect({
-        to: "/profile",
-      });
-    }
-    // Block riders and direct them to the rider console
-    if (role === "rider") {
-      throw redirect({
-        to: "/rider",
-      });
-    }
-  },
+  // SLICE 1.2 — cashier, manager, admin and owner may open the console.
+  // Everyone else is sent to their own home screen.
+  beforeLoad: requireRole(ADMIN_ROLES),
   head: () => ({
     meta: [
       { title: "Owner Console — Kennedy Moon Grill" },

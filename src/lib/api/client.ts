@@ -23,6 +23,8 @@
  * request by `normalizePath()`, so both spellings resolve to the same URL and
  * never produce `/api/api/...`.
  */
+import { currentTenantSlug } from "@/lib/tenant";
+
 export const API_BASE_URL: string = (
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? ""
 )
@@ -157,6 +159,13 @@ export function normalizePath(p: string): string {
 }
 
 
+/**
+ * SLICE 1.6 — the ONLY way to build a full backend URL outside `request()`.
+ * Callers that hand-built `${API_BASE_URL}/api/...` produced `/api/api/...`
+ * whenever the base URL already ended in `/api`.
+ */
+export const apiUrl = (path: string) => `${API_BASE_URL}${normalizePath(path)}`;
+
 async function refreshAccessToken(): Promise<string> {
   if (_refreshPromise) return _refreshPromise;
   _refreshPromise = (async () => {
@@ -167,7 +176,11 @@ async function refreshAccessToken(): Promise<string> {
     try {
       res = await fetch(`${API_BASE_URL}${refreshPath}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Tenant-Slug": currentTenantSlug(),
+        },
         body: JSON.stringify({ refresh }),
       });
     } catch {
@@ -222,7 +235,12 @@ async function request<T>(
     if (v !== undefined) url.searchParams.set(k, String(v));
   });
 
-  const headers: Record<string, string> = { Accept: "application/json" };
+  // SLICE 1.1 — every request is scoped to the active restaurant. Resolved from
+  // the tenant context, never hardcoded in a caller.
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Tenant-Slug": currentTenantSlug(),
+  };
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (AUTH_MODE === "jwt") {

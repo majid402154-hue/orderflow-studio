@@ -1,6 +1,7 @@
 import type { Dish } from "./menu";
 import { api, isBackendConfigured, tokens } from "@/lib/api/client";
 import { PROFILE } from "@/lib/api/endpoints";
+import { STATUS_FLOW, STATUS_HINT, STATUS_LABEL, type OrderStatus } from "@/lib/order-status";
 
 export type Address = {
   id?: string | number;
@@ -29,15 +30,16 @@ export const PAYMENTS: {
   { id: "cod", label: "Cash on Delivery", note: "Pay the rider at your door", fee: 150 },
 ];
 
-export type OrderStatusKey = "confirmed" | "kitchen" | "packed" | "onway" | "delivered";
+/**
+ * SLICE 1.3 — the customer-facing timeline is generated from the single status
+ * vocabulary in `src/lib/order-status.ts`. `pending` is skipped here because a
+ * customer only sees the timeline once the order exists.
+ */
+export type OrderStatusKey = Exclude<OrderStatus, "pending" | "cancelled">;
 
-export const ORDER_STAGES: { key: OrderStatusKey; label: string; hint: string }[] = [
-  { key: "confirmed", label: "Order Confirmed", hint: "Payment verified, ticket printed" },
-  { key: "kitchen", label: "In the Kitchen", hint: "Charcoal fired, dish cooking" },
-  { key: "packed", label: "Packed & Sealed", hint: "Boxed hot with free dips" },
-  { key: "onway", label: "Rider On The Way", hint: "Live tracking active" },
-  { key: "delivered", label: "Delivered", hint: "Enjoy your meal!" },
-];
+export const ORDER_STAGES: { key: OrderStatusKey; label: string; hint: string }[] = STATUS_FLOW
+  .filter((s): s is OrderStatusKey => s !== "pending")
+  .map((key) => ({ key, label: STATUS_LABEL[key], hint: STATUS_HINT[key] }));
 
 export type Order = {
   id: string;
